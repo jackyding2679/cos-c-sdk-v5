@@ -177,6 +177,8 @@ int cos_sign_request(cos_http_request_t *req,
     return res;
 }
 
+static int cos_get_canonicalized_params(cos_pool_t *p, const cos_table_t *params, cos_buf_t *signbuf);
+
 #if 0
 static int is_cos_sub_resource(const char *str);
 static int is_cos_canonicalized_header(const char *str);
@@ -184,8 +186,6 @@ static int cos_get_canonicalized_headers(cos_pool_t *p,
         const cos_table_t *headers, cos_buf_t *signbuf);
 static int cos_get_canonicalized_resource(cos_pool_t *p, 
         const cos_table_t *params, cos_buf_t *signbuf);
-static int cos_get_canonicalized_params(cos_pool_t *p,
-    const cos_table_t *params, cos_buf_t *signbuf);
 
 static int is_cos_sub_resource(const char *str)
 {
@@ -404,16 +404,17 @@ int cos_get_signed_url(const cos_request_options_t *options,
 
     return res;
 }
+#endif
 
  
 int cos_get_rtmp_signed_url(const cos_request_options_t *options,
-                            cos_http_request_t *req,
-                            const cos_string_t *expires,
-                            const cos_string_t *play_list_name,
-                            cos_table_t *params,
-                            cos_string_t *signed_url)
+                                   cos_http_request_t *req,
+                                   const uint64_t expire_sec,
+                                   cos_table_t *params,
+                                   cos_string_t *signed_url)
 {
     char *signed_url_str;
+    // char *rtmp_sign_str;
     cos_string_t querystr;
     char uristr[3*COS_MAX_URI_LEN+1];
     int res = COSE_OK;
@@ -429,17 +430,17 @@ int cos_get_rtmp_signed_url(const cos_request_options_t *options,
             apr_table_set(req->query_params, telts[pos].key, telts[pos].val);
         }
     }
-    apr_table_set(req->query_params, COS_PLAY_LIST_NAME, play_list_name->data);
+    // apr_table_set(req->query_params, COS_PLAY_LIST_NAME, play_list_name->data);
 
-    res = get_cos_rtmp_request_signature(options, req, expires,&signature);
+    res = get_cos_rtmp_request_signature(options, req, expire_sec, &signature);
     if (res != COSE_OK) {
         return res;
     }
 
-    apr_table_set(req->query_params, COS_ACCESSKEYID,
-                  options->config->access_key_id.data);
-    apr_table_set(req->query_params, COS_EXPIRES, expires->data);
-    apr_table_set(req->query_params, COS_SIGNATURE, signature.data);
+    // apr_table_set(req->query_params, COS_ACCESSKEYID,
+    //              options->config->access_key_id.data);
+    // apr_table_set(req->query_params, COS_EXPIRES, expires->data);
+    // apr_table_set(req->query_params, COS_SIGNATURE, signature.data);
 
     uristr[0] = '\0';
     cos_str_null(&querystr);
@@ -452,48 +453,89 @@ int cos_get_rtmp_signed_url(const cos_request_options_t *options,
     if (res != COSE_OK) {
         return res;
     }
-
-    signed_url_str = apr_psprintf(options->pool, "%s%s/%s%.*s",
-                                  req->proto, req->host, uristr,
-                                  querystr.len, querystr.data);
+    if (querystr.len) {
+        signed_url_str = apr_psprintf(options->pool, "%s%s/%s?%.*s&%.*s",
+                                      //req->proto, req->host, uristr,
+                                      req->proto, req->host, req->uri,
+                                      signature.len, signature.data,
+                                      querystr.len, querystr.data);
+    } else {
+        signed_url_str = apr_psprintf(options->pool, "%s%s/%s?%.*s",
+                                      // req->proto, req->host, uristr,
+                                      req->proto, req->host, req->uri,
+                                      signature.len, signature.data);
+    }
     cos_str_set(signed_url, signed_url_str);
 
     return res;
 }
 
 int get_cos_rtmp_request_signature(const cos_request_options_t *options,
-                                   cos_http_request_t *req,
-                                   const cos_string_t *expires,
-                                   cos_string_t *signature)
+                                           cos_http_request_t *req,
+                                           const uint64_t expire_sec,
+                                           cos_string_t *signature)
 {
     cos_string_t canon_res;
     char canon_buf[COS_MAX_URI_LEN];
-    const char *value;
-    cos_string_t signstr;
+    cos_buf_t *rtmp_string_buf;
+    unsigned char rtmp_string_sha1[40] = {};
+    cos_buf_t *string_to_sign_buf;
+    unsigned char sinature_str[40] = {};
+    apr_time_t now;
+    unsigned char time_str[64] = {0};
+    int time_str_len = 0;
+    char *rtmp_sign_info;
     int res = COSE_OK;
-    int b64Len;
-    unsigned char hmac[20];
-    char b64[((20 + 1) * 4) / 3];
 
     canon_res.data = canon_buf;
     canon_res.len = apr_snprintf(canon_buf, sizeof(canon_buf), "/%s", req->resource);
 
-    if ((res = cos_get_rtmp_string_to_sign(options->pool, expires, &canon_res,
-        req->query_params, &signstr))!= COSE_OK) {
+    // get rtmp string
+    rtmp_string_buf = cos_create_buf(options->pool, 128);
+    // append resource
+    cos_buf_append_string(options->pool, rtmp_string_buf, canon_res.data, canon_res.len);
+    cos_buf_append_string(options->pool, rtmp_string_buf, "\n", sizeof("\n") - 1);
+    // append param
+    if ((res = cos_get_canonicalized_params(options->pool, req->query_params, rtmp_string_buf)) != COSE_OK) {
         return res;
     }
+    cos_buf_append_string(options->pool, rtmp_string_buf, "\n", sizeof("\n") - 1);
+    // get rtmp string sha1
+    cos_get_sha1_hexdigest(rtmp_string_sha1, rtmp_string_buf->pos, cos_buf_size(rtmp_string_buf));
 
-    HMAC_SHA1(hmac, (unsigned char *)options->config->access_key_secret.data,
-              options->config->access_key_secret.len,
-              (unsigned char *)signstr.data, signstr.len);
+    // create string to sign buffer
+    string_to_sign_buf = cos_create_buf(options->pool, 128);
+    // append sha1
+    cos_buf_append_string(options->pool, string_to_sign_buf, "sha1", sizeof("sha1") - 1);
+    cos_buf_append_string(options->pool, string_to_sign_buf, "\n", sizeof("\n")-1);
+    // append time
+    now = apr_time_sec(apr_time_now());
+    time_str_len = apr_snprintf((char*)time_str, 64, "%"APR_INT64_T_FMT";%"APR_INT64_T_FMT, now, now + expire_sec);
+    cos_buf_append_string(options->pool, string_to_sign_buf, time_str, time_str_len);
+    cos_buf_append_string(options->pool, string_to_sign_buf, "\n", sizeof("\n") - 1);
+    // append rtmp string sha1
+    cos_buf_append_string(options->pool, string_to_sign_buf, rtmp_string_sha1, sizeof(rtmp_string_sha1));
+    cos_buf_append_string(options->pool, string_to_sign_buf, "\n", sizeof("\n") - 1);
 
-    b64Len = cos_base64_encode(hmac, 20, b64);
-    value = apr_psprintf(options->pool, "%.*s", b64Len, b64);
-    cos_str_set(signature, value);
+    // calc sinature
+    cos_get_hmac_sha1_hexdigest(sinature_str, (unsigned char *)options->config->access_key_secret.data,
+        options->config->access_key_secret.len, string_to_sign_buf->pos, cos_buf_size(string_to_sign_buf));
+
+    // get sign info
+    rtmp_sign_info = apr_psprintf(options->pool,
+                         "q-sign-algorithm=sha1&q-ak=%.*s&q-sign-time=%.*s&q-key-time=%.*s&q-signature=%.*s",
+                         options->config->access_key_id.len,
+                         options->config->access_key_id.data,
+                         time_str_len, (char*)time_str,
+                         time_str_len, (char*)time_str,
+                         (int)sizeof(sinature_str), sinature_str);
+    signature->data = rtmp_sign_info;
+    signature->len = strlen(rtmp_sign_info);
 
     return res;
 }
 
+#if 0
 int cos_get_rtmp_string_to_sign(cos_pool_t *p,
                                 const cos_string_t *expires,
                                 const cos_string_t *canon_res,
@@ -501,29 +543,50 @@ int cos_get_rtmp_string_to_sign(cos_pool_t *p,
                                 cos_string_t *signstr)
 {
     int res;
-    cos_buf_t *signbuf;
+    cos_buf_t *string_to_string_buf;
+    cos_buf_t *rtmp_string_buf;;
     cos_str_null(signstr);
+    unsigned char time_str[64] = {0};
+    int time_str_len = 0;
+    unsigned char rtmp_string_sha1_str[40] = {};
+    apr_time_t now;
 
-    signbuf = cos_create_buf(p, 1024);
-
-    // expires
-    cos_buf_append_string(p, signbuf, expires->data, expires->len);
-    cos_buf_append_string(p, signbuf, "\n", sizeof("\n")-1);
-
-    // canonicalized params
-    if ((res = cos_get_canonicalized_params(p, params, signbuf)) != COSE_OK) {
+    // get rtmp string first
+    rtmp_string_buf = cos_create_buf(p, 1024);
+    // append resource
+    cos_buf_append_string(p, rtmp_string_buf, canon_res->data, canon_res->len);
+    cos_buf_append_string(p, rtmp_string_buf, "\n", sizeof("\n") - 1);
+    // append param
+    if ((res = cos_get_canonicalized_params(p, params, rtmp_string_buf)) != COSE_OK) {
         return res;
     }
+    // get rtmp string sha1
+    cos_get_sha1_hexdigest(rtmp_string_sha1_str, rtmp_string_buf->pos, cos_buf_size(rtmp_string_buf));
 
-    // canonicalized resource
-    cos_buf_append_string(p, signbuf, canon_res->data, canon_res->len);
+    // create string to sign buffer
+    string_to_string_buf = cos_create_buf(p, 1024);
+
+    // append sha1
+    cos_buf_append_string(p, string_to_string_buf, "sha1", sizeof("sha1") - 1);
+    cos_buf_append_string(p, string_to_string_buf, "\n", sizeof("\n")-1);
+
+    // append time
+    now = apr_time_sec(apr_time_now());
+    time_str_len = apr_snprintf((char*)time_str, 64, "%"APR_INT64_T_FMT";%"APR_INT64_T_FMT, now, now + expires);
+    cos_buf_append_string(p, string_to_string_buf, time_str, time_str_len);
+    cos_buf_append_string(p, string_to_string_buf, "\n", sizeof("\n") - 1);
+
+    // append rtmp string sha1
+    cos_buf_append_string(p, string_to_string_buf, rtmp_string_sha1_str, sizeof(rtmp_string_sha1_str));
+    cos_buf_append_string(p, string_to_string_buf, "\n", sizeof("\n")-1);
 
     // result
-    signstr->data = (char *)signbuf->pos;
-    signstr->len = cos_buf_size(signbuf);
+    signstr->data = (char *)string_to_string_buf->pos;
+    signstr->len = cos_buf_size(string_to_string_buf);
 
     return COSE_OK;
 }
+#endif
 
 static int cos_get_canonicalized_params(cos_pool_t *p,
                                         const cos_table_t *params,
@@ -568,8 +631,13 @@ static int cos_get_canonicalized_params(cos_pool_t *p,
         value = apr_table_get(params, meta_headers[i]);
         cos_str_set(&tmp_str, value);
         cos_strip_space(&tmp_str);
-        len = apr_snprintf(tmpbuf, COS_MAX_HEADER_LEN + 1, "%s:%.*s",
+        if (i == meta_count - 1) {
+            len = apr_snprintf(tmpbuf, COS_MAX_HEADER_LEN + 1, "%s=%.*s",
                            meta_headers[i], tmp_str.len, tmp_str.data);
+        } else {
+            len = apr_snprintf(tmpbuf, COS_MAX_HEADER_LEN + 1, "%s=%.*s&",
+                           meta_headers[i], tmp_str.len, tmp_str.data);
+        }
         if (len > COS_MAX_HEADER_LEN) {
             free(tmpbuf);
             cos_error_log("rtmp parameters too many, %d > %d.",
@@ -579,11 +647,10 @@ static int cos_get_canonicalized_params(cos_pool_t *p,
         tmp_str.data = tmpbuf;
         tmp_str.len = len;
         cos_buf_append_string(p, signbuf, tmpbuf, len);
-        cos_buf_append_string(p, signbuf, "\n", sizeof("\n")-1);
+        // cos_buf_append_string(p, signbuf, "\n", sizeof("\n")-1);
     }
 
     free(tmpbuf);
     return COSE_OK;
 }
-#endif
 

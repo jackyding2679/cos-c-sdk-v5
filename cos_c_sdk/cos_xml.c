@@ -1869,14 +1869,13 @@ int cos_delete_objects_parse_from_body(cos_pool_t *p, cos_list_t *bc, cos_list_t
     return res;
 }
 
-#if 0
 void cos_publish_url_parse(cos_pool_t *p, mxml_node_t *node, cos_live_channel_publish_url_t *content)
 {   
     char *url;
-    char *node_content;
+    const char *node_content;
     
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         url = apr_pstrdup(p, node_content);
         cos_str_set(&content->publish_url, url);
     }
@@ -1885,10 +1884,10 @@ void cos_publish_url_parse(cos_pool_t *p, mxml_node_t *node, cos_live_channel_pu
 void cos_play_url_parse(cos_pool_t *p, mxml_node_t *node, cos_live_channel_play_url_t *content)
 {   
     char *url;
-    char *node_content;
+    const char *node_content;
     
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         url = apr_pstrdup(p, node_content);
         cos_str_set(&content->play_url, url);
     }
@@ -1980,8 +1979,8 @@ char *build_create_live_channel_xml(cos_pool_t *p, cos_live_channel_configuratio
     description_node = mxmlNewElement(root_node, "Description");
     mxmlNewText(description_node, 0, config->description.data);
 
-    status_node = mxmlNewElement(root_node, "Status");
-    mxmlNewText(status_node, 0, config->status.data);
+    status_node = mxmlNewElement(root_node, "Switch");
+    mxmlNewText(status_node, 0, config->chan_switch.data);
 
     // target
     target_node = mxmlNewElement(root_node, "Target");
@@ -2000,15 +1999,15 @@ char *build_create_live_channel_xml(cos_pool_t *p, cos_live_channel_configuratio
     mxmlNewText(play_list_node, 0, config->target.play_list_name.data);
 
     // dump
-	xml_buff = new_xml_buff(doc);
-	if (xml_buff == NULL) {
-		return NULL;
-	}
-	cos_str_set(&xml_doc, xml_buff);
-	complete_part_xml = cos_pstrdup(p, &xml_doc);
+    xml_buff = new_xml_buff(doc);
+    if (xml_buff == NULL) {
+        return NULL;
+    }
+    cos_str_set(&xml_doc, xml_buff);
+    complete_part_xml = cos_pstrdup(p, &xml_doc);
 
-	free(xml_buff);
-	mxmlDelete(doc);
+    free(xml_buff);
+    mxmlDelete(doc);
 
     return complete_part_xml;
 }
@@ -2031,33 +2030,33 @@ void cos_live_channel_info_target_content_parse(cos_pool_t *p, mxml_node_t *xml_
     char *frag_duration;
     char *frag_count;
     char *play_list;
-    char *node_content;
+    const char *node_content;
     mxml_node_t *node;
 
     node = mxmlFindElement(xml_node, xml_node, "Type", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         type = apr_pstrdup(p, node_content);
         cos_str_set(&target->type, type);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "FragDuration", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         frag_duration = apr_pstrdup(p, node_content);
         target->frag_duration = atoi(frag_duration);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "FragCount", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         frag_count = apr_pstrdup(p, node_content);
         target->frag_count = atoi(frag_count);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "PlaylistName",NULL, NULL,MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         play_list = apr_pstrdup(p, node_content);
         cos_str_set(&target->play_list_name, play_list);
     }
@@ -2073,21 +2072,21 @@ void cos_live_channel_info_content_parse(cos_pool_t *p, mxml_node_t *root, const
     if (NULL != cofig_node) {
         char *description;
         char *status;
-        char *node_content;
+        const char *node_content;
         mxml_node_t *node;
 
         node = mxmlFindElement(cofig_node, cofig_node, "Description", NULL, NULL, MXML_DESCEND);
         if (NULL != node) {
-            node_content = node->child->value.opaque;
+            node_content = mxmlGetOpaque(node);
             description = apr_pstrdup(p, node_content);
             cos_str_set(&info->description, description);
         }
 
-        node = mxmlFindElement(cofig_node, cofig_node, "Status", NULL, NULL, MXML_DESCEND);
+        node = mxmlFindElement(cofig_node, cofig_node, "Switch", NULL, NULL, MXML_DESCEND);
         if (NULL != node) {
-            node_content = node->child->value.opaque;
+            node_content = mxmlGetOpaque(node);
             status = apr_pstrdup(p, node_content);
-            cos_str_set(&info->status, status);
+            cos_str_set(&info->chan_switch, status);
         }
 
         target_node = mxmlFindElement(cofig_node, cofig_node, "Target", NULL, NULL, MXML_DESCEND);
@@ -2119,40 +2118,40 @@ void cos_live_channel_stat_video_content_parse(cos_pool_t *p, mxml_node_t *xml_n
     char *frame_rate;
     char *band_width;
     char *codec;
-    char *node_content;
+    const char *node_content;
     mxml_node_t *node;
 
     node = mxmlFindElement(xml_node, xml_node, "Width", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         width = apr_pstrdup(p, node_content);
         video_stat->width = atoi(width);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "Height", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         height = apr_pstrdup(p, node_content);
         video_stat->height = atoi(height);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "FrameRate", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         frame_rate = apr_pstrdup(p, node_content);
         video_stat->frame_rate = atoi(frame_rate);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "Bandwidth", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         band_width = apr_pstrdup(p, node_content);
         video_stat->band_width = atoi(band_width);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "Codec", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         codec = apr_pstrdup(p, node_content);
         cos_str_set(&video_stat->codec, codec);
     }
@@ -2163,26 +2162,26 @@ void cos_live_channel_stat_audio_content_parse(cos_pool_t *p, mxml_node_t *xml_n
     char *band_width;
     char *sample_rate;
     char *codec;
-    char *node_content;
+    const char *node_content;
     mxml_node_t *node;
 
     node = mxmlFindElement(xml_node, xml_node, "Bandwidth", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         band_width = apr_pstrdup(p, node_content);
         audio_stat->band_width = atoi(band_width);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "SampleRate", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         sample_rate = apr_pstrdup(p, node_content);
         audio_stat->sample_rate = atoi(sample_rate);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "Codec", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         codec = apr_pstrdup(p, node_content);
         cos_str_set(&audio_stat->codec, codec);
     }
@@ -2197,26 +2196,26 @@ void cos_live_channel_stat_content_parse(cos_pool_t *p, mxml_node_t *root, const
         char *status;
         char *connected_time;
         char *remote_addr;
-        char *node_content;
+        const char *node_content;
         mxml_node_t *node;
 
         node = mxmlFindElement(stat_node, stat_node, "Status", NULL, NULL, MXML_DESCEND);
         if (NULL != node) {
-            node_content = node->child->value.opaque;
+            node_content = mxmlGetOpaque(node);
             status = apr_pstrdup(p, (char *)node_content);
             cos_str_set(&stat->pushflow_status, status);
         }
 
         node = mxmlFindElement(stat_node, stat_node, "ConnectedTime", NULL, NULL, MXML_DESCEND);
         if (NULL != node) {
-            node_content = node->child->value.opaque;
+            node_content = mxmlGetOpaque(node);
             connected_time = apr_pstrdup(p, (char *)node_content);
             cos_str_set(&stat->connected_time, connected_time);
         }
 
         node = mxmlFindElement(stat_node, stat_node, "RemoteAddr", NULL, NULL, MXML_DESCEND);
         if (NULL != node) {
-            node_content = node->child->value.opaque;
+            node_content = mxmlGetOpaque(node);
             remote_addr = apr_pstrdup(p, (char *)node_content);
             cos_str_set(&stat->remote_addr, remote_addr);
         }
@@ -2237,7 +2236,7 @@ int cos_live_channel_stat_parse_from_body(cos_pool_t *p, cos_list_t *bc, cos_liv
 {
     int res;
     mxml_node_t *root;
-    const char xml_path[] = "LiveChannelStat";
+    const char xml_path[] = "LiveChannelStatus";
 
     res = get_xmldoc(bc, &root);
     if (res == COSE_OK) {
@@ -2254,50 +2253,50 @@ void cos_list_live_channel_content_parse(cos_pool_t *p, mxml_node_t *xml_node, c
     char *description;
     char *status;
     char *last_modified;
-    char *node_content;
+    const char *node_content;
     mxml_node_t *node;
 
     node = mxmlFindElement(xml_node, xml_node, "Name", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         name = apr_pstrdup(p, (char *)node_content);
         cos_str_set(&content->name, name);
     }
 
-    node = mxmlFindElement(xml_node, xml_node, "Description", NULL, NULL, MXML_DESCEND);
-    if (NULL != node) {
-        if (NULL != node->child) {
-            node_content = node->child->value.opaque;
-            description = apr_pstrdup(p, (char *)node_content);
-            cos_str_set(&content->description, description);
-        } else {
-            cos_str_set(&content->description, "");
-        }
-    }
+    // node = mxmlFindElement(xml_node, xml_node, "Description", NULL, NULL, MXML_DESCEND);
+    // if (NULL != node) {
+    //     if (NULL != mxmlGetFirstChild(node)) {
+    //         node_content = mxmlGetOpaque(node);
+    //         description = apr_pstrdup(p, (char *)node_content);
+    //         cos_str_set(&content->description, description);
+    //     } else {
+    //         cos_str_set(&content->description, "");
+    //     }
+    // }
 
-    node = mxmlFindElement(xml_node, xml_node, "Status", NULL, NULL, MXML_DESCEND);
-    if (NULL != node) {
-        node_content = node->child->value.opaque;
-        status = apr_pstrdup(p, (char *)node_content);
-        cos_str_set(&content->status, status);
-    }
+    // node = mxmlFindElement(xml_node, xml_node, "Status", NULL, NULL, MXML_DESCEND);
+    // if (NULL != node) {
+    //     node_content = mxmlGetOpaque(node);
+    //     status = apr_pstrdup(p, (char *)node_content);
+    //     cos_str_set(&content->status, status);
+    // }
 
     node = mxmlFindElement(xml_node, xml_node, "LastModified", NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         last_modified = apr_pstrdup(p, (char *)node_content);
         cos_str_set(&content->last_modified, last_modified);
     }
 
-    node = mxmlFindElement(xml_node, xml_node, "PublishUrls", NULL, NULL, MXML_DESCEND);
-    if (NULL != node) {
-        cos_publish_urls_contents_parse(p, node, "Url", &content->publish_url_list);
-    }
+    // node = mxmlFindElement(xml_node, xml_node, "PublishUrls", NULL, NULL, MXML_DESCEND);
+    // if (NULL != node) {
+    //     cos_publish_urls_contents_parse(p, node, "Url", &content->publish_url_list);
+    // }
 
-    node = mxmlFindElement(xml_node, xml_node, "PlayUrls", NULL, NULL, MXML_DESCEND);
-    if (NULL != node) {
-        cos_play_urls_contents_parse(p, node, "Url", &content->play_url_list);
-    }
+    // node = mxmlFindElement(xml_node, xml_node, "PlayUrls", NULL, NULL, MXML_DESCEND);
+    // if (NULL != node) {
+    //     cos_play_urls_contents_parse(p, node, "Url", &content->play_url_list);
+    // }
 }
 
 void cos_list_live_channel_contents_parse(cos_pool_t *p, mxml_node_t *root, const char *xml_path,
@@ -2348,28 +2347,35 @@ void cos_live_channel_history_content_parse(cos_pool_t *p, mxml_node_t * xml_nod
     char *start_time;
     char *end_time;
     char *remote_addr;
-    char *node_content;
+    const char *node_content;
     mxml_node_t *node;
 
     node = mxmlFindElement(xml_node, xml_node, "StartTime",NULL, NULL, MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         start_time = apr_pstrdup(p, (char *)node_content);
         cos_str_set(&content->start_time, start_time);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "EndTime",NULL, NULL,MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         end_time = apr_pstrdup(p, (char *)node_content);
         cos_str_set(&content->end_time, end_time);
     }
 
     node = mxmlFindElement(xml_node, xml_node, "RemoteAddr",NULL, NULL,MXML_DESCEND);
     if (NULL != node) {
-        node_content = node->child->value.opaque;
+        node_content = mxmlGetOpaque(node);
         remote_addr = apr_pstrdup(p, (char *)node_content);
         cos_str_set(&content->remote_addr, remote_addr);
+    }
+
+    node = mxmlFindElement(xml_node, xml_node, "RequestId",NULL, NULL,MXML_DESCEND);
+    if (NULL != node) {
+        node_content = mxmlGetOpaque(node);
+        remote_addr = apr_pstrdup(p, (char *)node_content);
+        cos_str_set(&content->request_id, remote_addr);
     }
 }
 
@@ -2402,7 +2408,6 @@ int cos_live_channel_history_parse_from_body(cos_pool_t *p, cos_list_t *bc, cos_
 
     return res;
 }
-#endif
 
 char *build_objects_xml(cos_pool_t *p, cos_list_t *object_list, const char *quiet)
 {

@@ -153,7 +153,7 @@ int cos_query_params_to_string(cos_pool_t *p, cos_table_t *query_params, cos_str
     return COSE_OK;
 }
 
-#if 0
+#if 1
 void cos_gnome_sort(const char **headers, int size)
 {
     const char *tmp;

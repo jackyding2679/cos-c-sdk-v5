@@ -95,6 +95,7 @@ extern const char COS_LIVE_CHANNEL_VOD[];
 extern const char COS_LIVE_CHANNEL_START_TIME[];
 extern const char COS_LIVE_CHANNEL_END_TIME[];
 extern const char COS_PLAY_LIST_NAME[];
+extern const char COS_LIVE_CHANNEL_SWITCH[];
 extern const char LIVE_CHANNEL_STATUS_DISABLED[];
 extern const char LIVE_CHANNEL_STATUS_ENABLED[];
 extern const char LIVE_CHANNEL_STATUS_IDLE[];
@@ -362,7 +363,7 @@ typedef struct {
 typedef struct {
     cos_string_t name;
     cos_string_t description;
-    cos_string_t status;
+    cos_string_t chan_switch;
     cos_live_channel_target_t target;
 } cos_live_channel_configuration_t;
 
@@ -401,11 +402,11 @@ typedef struct {
 typedef struct {
     cos_list_t node;
     cos_string_t name;
-    cos_string_t description;
-    cos_string_t status;
+    // cos_string_t description;
+    // cos_string_t status;
     cos_string_t last_modified;
-    cos_list_t publish_url_list;
-    cos_list_t play_url_list;
+    // cos_list_t publish_url_list;
+    // cos_list_t play_url_list;
 } cos_live_channel_content_t;
 
 typedef struct {
@@ -422,6 +423,7 @@ typedef struct {
     cos_string_t start_time;
     cos_string_t end_time;
     cos_string_t remote_addr;
+    cos_string_t request_id;
 } cos_live_record_content_t;
 
 typedef struct {

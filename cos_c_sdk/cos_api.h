@@ -1339,14 +1339,13 @@ cos_status_t *cos_resumable_upload_file(cos_request_options_t *options,
                                         cos_table_t **resp_headers,
                                         cos_list_t *resp_body);
 
-#if 0
 /*
  * @brief  cos create live channel
  * @param[in]   options             the cos request options
  * @param[in]   bucket        the cos bucket name, syntax: [bucket]-[appid], for example: mybucket-1253666666
  * @param[in]   config              the cos live channel configuration
- * @param[in]   publish_url_list    the publish url list
- * @param[in]   play_url_list       the play url list
+ * @param[out]   publish_url_list    the publish url list
+ * @param[out]   play_url_list       the play url list
  * @param[out]  resp_headers        cos server response headers
  * @return  cos_status_t, code is 2xx success, other failure
  */
@@ -1358,18 +1357,18 @@ cos_status_t *cos_create_live_channel(const cos_request_options_t *options,
                                       cos_table_t **resp_headers);
 
 /*
- * @brief  cos set live channel status
+ * @brief  cos set live channel switch
  * @param[in]   options             the cos request options
  * @param[in]   bucket        the cos bucket name, syntax: [bucket]-[appid], for example: mybucket-1253666666
  * @param[in]   live_channel        the cos live channel name
- * @param[in]   live_channel_status the cos live channel status, enabled or disabled
+ * @param[in]   live_channel_switch the cos live channel siwtch, enabled or disabled
  * @param[out]  resp_headers        cos server response headers
  * @return  cos_status_t, code is 2xx success, other failure
  */
-cos_status_t *cos_put_live_channel_status(const cos_request_options_t *options,
+cos_status_t *cos_put_live_channel_switch(const cos_request_options_t *options,
                                           const cos_string_t *bucket,
                                           const cos_string_t *live_channel,
-                                          const cos_string_t *live_channel_status,
+                                          const cos_string_t *live_channel_switch,
                                           cos_table_t **resp_headers);
 
 /*
@@ -1468,18 +1467,17 @@ cos_status_t *cos_gen_vod_play_list(const cos_request_options_t *options,
 /*
  * @brief  gen signed url for put rtmp stream
  * @param[in]   options             the cos request options
- * @param[in]   bucket        the cos bucket name, syntax: [bucket]-[appid], for example: mybucket-1253666666
+ * @param[in]   bucket              the cos bucket name, syntax: [bucket]-[appid], for example: mybucket-1253666666
  * @param[in]   live_channel        the cos live channel name
- * @param[in]   play_list_name      the cos live channel play list name
- * @param[in]   expires             the end expire time for signed url
+ * @param[in]   expire_sec          expire seconds
+ * @param[in]   params              custom params in rtmp url
  * @return  signed url, non-NULL success, NULL failure
  */
 char *cos_gen_rtmp_signed_url(const cos_request_options_t *options,
-                              const cos_string_t *bucket,
-                              const cos_string_t *live_channel,
-                              const cos_string_t *play_list_name,
-                              const int64_t expires);
-#endif
+                                      const cos_string_t *bucket,
+                                      const cos_string_t *live_channel,
+                                      const uint64_t expire_sec,
+                                      cos_table_t *params);
 
 /*
  * @brief  generate a presigned cos url

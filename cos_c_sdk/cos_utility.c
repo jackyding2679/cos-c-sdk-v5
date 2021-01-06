@@ -137,14 +137,13 @@ static void generate_proto(const cos_request_options_t *options,
             COS_HTTPS_PREFIX : proto;
     req->proto = apr_psprintf(options->pool, "%.*s", (int)strlen(proto), proto);
 }
-#if 0
+
 static void generate_rtmp_proto(const cos_request_options_t *options,
                            cos_http_request_t *req)
 {
     const char *proto = COS_RTMP_PREFIX;
     req->proto = apr_psprintf(options->pool, "%.*s", (int)strlen(proto), proto);
 }
-#endif
 
 int is_valid_ip(const char *str)
 {
@@ -323,7 +322,6 @@ void cos_get_bucket_uri(const cos_request_options_t *options,
     req->uri = apr_psprintf(options->pool, "%s", "");
 }
 
-#if 0
 void cos_get_rtmp_uri(const cos_request_options_t *options,
                       const cos_string_t *bucket,
                       const cos_string_t *live_channel_id,
@@ -342,8 +340,10 @@ void cos_get_rtmp_uri(const cos_request_options_t *options,
 
     raw_endpoint_str = cos_pstrdup(options->pool,
             &options->config->endpoint) + proto_len;
-    raw_endpoint.len = options->config->endpoint.len - proto_len;
-    raw_endpoint.data = options->config->endpoint.data + proto_len;
+    // raw_endpoint.len = options->config->endpoint.len - proto_len;
+    // raw_endpoint.data = options->config->endpoint.data + proto_len;
+    raw_endpoint.len = options->config->endpoint.len;
+    raw_endpoint.data = options->config->endpoint.data;
 
     if (options->config->is_cname) {
         req->host = apr_psprintf(options->pool, "%.*s",
@@ -364,7 +364,6 @@ void cos_get_rtmp_uri(const cos_request_options_t *options,
             live_channel_id->len, live_channel_id->data);
     }
 }
-#endif
 
 void cos_write_request_body_from_buffer(cos_list_t *buffer, 
                                         cos_http_request_t *req)
@@ -816,7 +815,6 @@ cos_object_key_t *cos_create_cos_object_key(cos_pool_t *p)
     return (cos_object_key_t *)cos_pcalloc(p, sizeof(cos_object_key_t));
 }
 
-#if 0
 cos_live_channel_publish_url_t *cos_create_live_channel_publish_url(cos_pool_t *p)
 {
     return (cos_live_channel_publish_url_t *)cos_pcalloc(p, sizeof(cos_live_channel_publish_url_t));
@@ -832,8 +830,8 @@ cos_live_channel_content_t *cos_create_list_live_channel_content(cos_pool_t *p)
     cos_live_channel_content_t *list_live_channel_content = NULL;
     list_live_channel_content = (cos_live_channel_content_t*)cos_create_api_result_content(p,
         sizeof(cos_live_channel_content_t));
-    cos_list_init(&list_live_channel_content->publish_url_list);
-    cos_list_init(&list_live_channel_content->play_url_list);
+    // cos_list_init(&list_live_channel_content->publish_url_list);
+    // cos_list_init(&list_live_channel_content->play_url_list);
     return list_live_channel_content;
 }
 
@@ -853,7 +851,7 @@ cos_live_channel_configuration_t *cos_create_live_channel_configuration_content(
 
     cos_str_set(&config->name, "");
     cos_str_set(&config->description, "");
-    cos_str_set(&config->status, LIVE_CHANNEL_STATUS_ENABLED);
+    cos_str_set(&config->chan_switch, LIVE_CHANNEL_STATUS_ENABLED);
     cos_str_set(&config->target.type, LIVE_CHANNEL_DEFAULT_TYPE);
     cos_str_set(&config->target.play_list_name, LIVE_CHANNEL_DEFAULT_PLAYLIST);
     config->target.frag_duration = LIVE_CHANNEL_DEFAULT_FRAG_DURATION;
@@ -861,7 +859,6 @@ cos_live_channel_configuration_t *cos_create_live_channel_configuration_content(
 
     return config;
 }
-#endif
 
 cos_checkpoint_t *cos_create_checkpoint_content(cos_pool_t *p) 
 {
@@ -892,7 +889,6 @@ cos_resumable_clt_params_t *cos_create_resumable_clt_params_content(cos_pool_t *
     return clt;
 }
 
-#if 0
 cos_list_live_channel_params_t *cos_create_list_live_channel_params(cos_pool_t *p)
 {
     cos_list_live_channel_params_t *params;
@@ -905,7 +901,6 @@ cos_list_live_channel_params_t *cos_create_list_live_channel_params(cos_pool_t *
     params->max_keys = COS_PER_RET_NUM;
     return params;
 }
-#endif
 
 void cos_set_multipart_content_type(cos_table_t *headers)
 {
@@ -992,7 +987,6 @@ void cos_init_object_request(const cos_request_options_t *options,
     cos_get_object_uri(options, bucket, object, *req);
 }
 
-#if 0
 void cos_init_live_channel_request(const cos_request_options_t *options, 
                                    const cos_string_t *bucket,
                                    const cos_string_t *live_channel,
@@ -1021,7 +1015,6 @@ void cos_init_signed_url_request(const cos_request_options_t *options,
     (*req)->query_params = params;
     (*req)->signed_url = signed_url->data;
 }
-#endif
 
 cos_status_t *cos_send_request(cos_http_controller_t *ctl, 
                                cos_http_request_t *req,

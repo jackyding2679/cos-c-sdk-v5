@@ -28,3 +28,5 @@ target_link_libraries(cos_c_sdk_test ${APR_LIBRARY})
 target_link_libraries(cos_c_sdk_test ${MINIXML_LIBRARY})
 target_link_libraries(cos_c_sdk_test ${CURL_LIBRARY})
 
+add_executable(test_cos_live test_cos_live.c)
+target_link_libraries(test_cos_live cos_c_sdk ${APR_UTIL_LIBRARY} ${APR_LIBRARY} ${MINIXML_LIBRARY} ${CURL_LIBRARY})
